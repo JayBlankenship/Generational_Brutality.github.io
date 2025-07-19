@@ -74,10 +74,10 @@ function initGame() {
     const moveDistance = playerSpeed * deltaTime;
 
     // Update player position
-    if (moveState.forward) player.position.z -= moveDistance; // Note: Negative Z is "forward" in Three.js
-    if (moveState.backward) player.position.z += moveDistance;
-    if (moveState.left) player.position.x -= moveDistance;
-    if (moveState.right) player.position.x += moveDistance;
+    if (moveState.forward) player.position.z += moveDistance; // Note: Negative Z is "forward" in Three.js
+    if (moveState.backward) player.position.z -= moveDistance;
+    if (moveState.left) player.position.x += moveDistance;
+    if (moveState.right) player.position.x -= moveDistance;
 
     // SIMPLE camera follow - no lerping for now
     camera.position.x = player.position.x;
