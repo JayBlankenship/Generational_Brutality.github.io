@@ -74,8 +74,8 @@ function initGame() {
     let isPointerLocked = false;
     let mouseX = 0;
     let mouseY = 0;
-    let thetaSensitivity = parseFloat(thetaSensitivityInput.value);
-    let phiSensitivity = parseFloat(phiSensitivityInput.value);
+    let thetaSensitivity = parseFloat(thetaSensitivityInput.value); // Increased base to 0.002
+    let phiSensitivity = parseFloat(phiSensitivityInput.value);    // Increased base to 0.002
 
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
 
@@ -206,8 +206,8 @@ function initGame() {
                 topSpinSpeed *= -1; // Reverse direction at angle limits
             }
 
-            // Floating effect for top cone
-            const floatOffset = Math.sin(animationTime * 2) * 0.2; // Slight up-down movement (0.2 units)
+            // Floating effect for top cone (increased range)
+            const floatOffset = Math.sin(animationTime * 2) * 0.4; // Increased from 0.2 to 0.4 for larger range
             topCone.position.y = 1.5 + floatOffset; // Base offset + oscillation
             topCone.rotation.x = Math.PI + floatOffset * 0.1; // Slight tilt with float
 
