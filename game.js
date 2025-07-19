@@ -29,17 +29,30 @@ function initGame() {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // Player (cone)
-    const coneGeometry = new THREE.ConeGeometry(0.5, 1, 8);
-    const coneMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    const player = new THREE.Mesh(coneGeometry, coneMaterial);
-    player.position.set(0, 0.5, 0);
-    scene.add(player);
+    // Player (group of two cones)
+    const coneGeometry = new THREE.ConeGeometry(0.5, 1, 16, 16); // Increased segments for more vertices
+    const coneMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x00FFFF, // Neon cyan
+        wireframe: true,
+        transparent: true,
+        opacity: 0.8 // Slight transparency for Tron effect
+    });
 
-    // Ground
+    const playerGroup = new THREE.Group();
+    const bottomCone = new THREE.Mesh(coneGeometry, coneMaterial);
+    const topCone = new THREE.Mesh(coneGeometry, coneMaterial);
+    bottomCone.position.y = 0.5; // Base height
+    topCone.position.y = 1.5;    // Initial offset for floating effect
+    topCone.rotation.x = Math.PI; // Flip upside down (180 degrees around x-axis)
+    playerGroup.add(bottomCone);
+    playerGroup.add(topCone);
+    playerGroup.position.y = 0;   // Group base at origin
+    scene.add(playerGroup);
+
+    // Ground with Tron-like wireframe
     const planeGeometry = new THREE.PlaneGeometry(20, 20);
     const planeMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x555555, 
+        color: 0x00FF00, // Neon green
         side: THREE.DoubleSide,
         wireframe: true
     });
@@ -49,10 +62,10 @@ function initGame() {
 
     // Initial camera position
     camera.position.set(0, 5, -10);
-    camera.lookAt(player.position);
+    camera.lookAt(playerGroup.position);
 
     // Calculate initial theta and phi
-    const initialOffset = new THREE.Vector3().subVectors(camera.position, player.position);
+    const initialOffset = new THREE.Vector3().subVectors(camera.position, playerGroup.position);
     const r = initialOffset.length();
     let theta = Math.atan2(initialOffset.x, initialOffset.z);
     let phi = Math.atan2(initialOffset.y, Math.sqrt(initialOffset.x ** 2 + initialOffset.z ** 2));
@@ -102,6 +115,7 @@ function initGame() {
     const playerSpeed = 5.0;
     let lastTime = performance.now();
     let isMenuOpen = false;
+    let animationTime = 0; // For floating effect
 
     document.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
@@ -148,6 +162,7 @@ function initGame() {
         
         const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
         lastTime = currentTime;
+        animationTime += deltaTime; // Increment time for floating
         const moveDistance = playerSpeed * deltaTime;
 
         // Update player position only if menu is closed
@@ -158,23 +173,43 @@ function initGame() {
             direction.normalize();
 
             if (moveState.forward) {
-                player.position.x += moveDistance * direction.x;
-                player.position.z += moveDistance * direction.z;
+                playerGroup.position.x += moveDistance * direction.x;
+                playerGroup.position.z += moveDistance * direction.z;
             }
             if (moveState.backward) {
-                player.position.x -= moveDistance * direction.x;
-                player.position.z -= moveDistance * direction.z;
+                playerGroup.position.x -= moveDistance * direction.x;
+                playerGroup.position.z -= moveDistance * direction.z;
             }
             if (moveState.left) {
                 const leftVector = new THREE.Vector3().crossVectors(camera.up, direction).normalize();
-                player.position.x += moveDistance * leftVector.x;
-                player.position.z += moveDistance * leftVector.z;
+                playerGroup.position.x += moveDistance * leftVector.x;
+                playerGroup.position.z += moveDistance * leftVector.z;
             }
             if (moveState.right) {
                 const rightVector = new THREE.Vector3().crossVectors(direction, camera.up).normalize();
-                player.position.x += moveDistance * rightVector.x;
-                player.position.z += moveDistance * rightVector.z;
+                playerGroup.position.x += moveDistance * rightVector.x;
+                playerGroup.position.z += moveDistance * rightVector.z;
             }
+
+            // Random spinning for each cone
+            const bottomSpinSpeed = (Math.random() - 0.5) * 1.0; // Random speed between -0.5 and 0.5
+            const bottomSpinAngle = Math.PI * (Math.random() * 0.5 + 0.25); // Random angle between PI/4 and 3PI/4
+            bottomCone.rotation.y += deltaTime * bottomSpinSpeed;
+            if (bottomCone.rotation.y > bottomSpinAngle || bottomCone.rotation.y < -bottomSpinAngle) {
+                bottomSpinSpeed *= -1; // Reverse direction at angle limits
+            }
+
+            const topSpinSpeed = (Math.random() - 0.5) * 1.2; // Different random speed
+            const topSpinAngle = Math.PI * (Math.random() * 0.7 + 0.3); // Different random angle
+            topCone.rotation.y += deltaTime * topSpinSpeed;
+            if (topCone.rotation.y > topSpinAngle || topCone.rotation.y < -topSpinAngle) {
+                topSpinSpeed *= -1; // Reverse direction at angle limits
+            }
+
+            // Floating effect for top cone
+            const floatOffset = Math.sin(animationTime * 2) * 0.2; // Slight up-down movement (0.2 units)
+            topCone.position.y = 1.5 + floatOffset; // Base offset + oscillation
+            topCone.rotation.x = Math.PI + floatOffset * 0.1; // Slight tilt with float
 
             // Update camera based on mouse movement
             if (isPointerLocked && (mouseX !== 0 || mouseY !== 0)) {
@@ -188,10 +223,10 @@ function initGame() {
 
             // Update camera position
             const horizontalDistance = r * Math.cos(phi);
-            camera.position.x = player.position.x + horizontalDistance * Math.sin(theta);
-            camera.position.z = player.position.z + horizontalDistance * Math.cos(theta);
-            camera.position.y = player.position.y + r * Math.sin(phi);
-            camera.lookAt(player.position);
+            camera.position.x = playerGroup.position.x + horizontalDistance * Math.sin(theta);
+            camera.position.z = playerGroup.position.z + horizontalDistance * Math.cos(theta);
+            camera.position.y = playerGroup.position.y + r * Math.sin(phi);
+            camera.lookAt(playerGroup.position);
         }
 
         renderer.render(scene, camera);
