@@ -41,11 +41,47 @@ function initGame() {
     const playerGroup = new THREE.Group();
     const bottomCone = new THREE.Mesh(coneGeometry, coneMaterial);
     const topCone = new THREE.Mesh(coneGeometry, coneMaterial);
-    bottomCone.position.y = 0.5; // Base height
-    topCone.position.y = 1.5;    // Initial offset for floating effect
+    bottomCone.position.y = 0.5; // Base height (tip of bottom cone)
+    topCone.position.y = 1.9167; // Initial offset for floating effect (midpoint of 1.3333 to 1.7778)
     topCone.rotation.x = Math.PI; // Flip upside down (180 degrees around x-axis)
     playerGroup.add(bottomCone);
     playerGroup.add(topCone);
+    
+    // Create 5-pointed star geometry
+    const starGeometry = new THREE.BufferGeometry();
+    const radius = 0.3; // Length of star arms
+    const vertices = new Float32Array([
+        0, 0, 0,                      // Center (0)
+        radius * Math.cos(0), radius * Math.sin(0), 0, // Point 1 (0°)
+        radius * Math.cos(Math.PI * 2 / 5), radius * Math.sin(Math.PI * 2 / 5), 0, // Point 2 (72°)
+        radius * Math.cos(Math.PI * 4 / 5), radius * Math.sin(Math.PI * 4 / 5), 0, // Point 3 (144°)
+        radius * Math.cos(Math.PI * 6 / 5), radius * Math.sin(Math.PI * 6 / 5), 0, // Point 4 (216°)
+        radius * Math.cos(Math.PI * 8 / 5), radius * Math.sin(Math.PI * 8 / 5), 0  // Point 5 (288°)
+    ]);
+    const indices = new Uint16Array([
+        0, 1,  // Center to Point 1
+        0, 2,  // Center to Point 2
+        0, 3,  // Center to Point 3
+        0, 4,  // Center to Point 4
+        0, 5,  // Center to Point 5
+        1, 3,  // Point 1 to Point 3
+        2, 4,  // Point 2 to Point 4
+        3, 5,  // Point 3 to Point 5
+        4, 1,  // Point 4 to Point 1
+        5, 2   // Point 5 to Point 2
+    ]);
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    starGeometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    const starMaterial = new THREE.LineBasicMaterial({
+        color: 0x00FFFF, // Neon cyan
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending // Bright, glowing effect
+    });
+    const star = new THREE.LineSegments(starGeometry, starMaterial);
+    star.position.set(0, 1.2084, 0); // Initial midpoint (average of 0.5 and 1.9167)
+    playerGroup.add(star);
+
     playerGroup.position.y = 0;   // Group base at origin
     scene.add(playerGroup);
 
@@ -74,8 +110,8 @@ function initGame() {
     let isPointerLocked = false;
     let mouseX = 0;
     let mouseY = 0;
-    let thetaSensitivity = parseFloat(thetaSensitivityInput.value); // Increased base to 0.002
-    let phiSensitivity = parseFloat(phiSensitivityInput.value);    // Increased base to 0.002
+    let thetaSensitivity = parseFloat(thetaSensitivityInput.value); // Uses HTML default 0.02
+    let phiSensitivity = parseFloat(phiSensitivityInput.value);    // Uses HTML default 0.002
 
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
 
@@ -115,7 +151,7 @@ function initGame() {
     const playerSpeed = 5.0;
     let lastTime = performance.now();
     let isMenuOpen = false;
-    let animationTime = 0; // For floating effect
+    let animationTime = 0; // For floating and star pulsing
 
     document.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
@@ -162,7 +198,7 @@ function initGame() {
         
         const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
         lastTime = currentTime;
-        animationTime += deltaTime; // Increment time for floating
+        animationTime += deltaTime; // Increment time for floating and pulsing
         const moveDistance = playerSpeed * deltaTime;
 
         // Update player position only if menu is closed
@@ -193,7 +229,7 @@ function initGame() {
 
             // Random spinning for each cone
             const bottomSpinSpeed = (Math.random() - 0.5) * 1.0; // Random speed between -0.5 and 0.5
-            const bottomSpinAngle = Math.PI * (Math.random() * 0.5 + 0.25); // Random angle between PI/4 and 3PI/4
+            const bottomSpinAngle = Math.PI * (Math.random() * 0.5 + 0.25); // Random angle between PI/4 and 3PI/5
             bottomCone.rotation.y += deltaTime * bottomSpinSpeed;
             if (bottomCone.rotation.y > bottomSpinAngle || bottomCone.rotation.y < -bottomSpinAngle) {
                 bottomSpinSpeed *= -1; // Reverse direction at angle limits
@@ -206,10 +242,24 @@ function initGame() {
                 topSpinSpeed *= -1; // Reverse direction at angle limits
             }
 
-            // Floating effect for top cone (increased range)
-            const floatOffset = Math.sin(animationTime * 2) * 0.4; // Increased from 0.2 to 0.4 for larger range
-            topCone.position.y = 1.5 + floatOffset; // Base offset + oscillation
+            // Floating effect for top cone (continuous oscillation, no overlap)
+            const floatOffset = Math.sin(animationTime * 2) * 0.2222; // ±0.2222 for 1/3 range
+            topCone.position.y = 1.9167 + floatOffset; // Base offset at 1.9167 + oscillation
             topCone.rotation.x = Math.PI + floatOffset * 0.1; // Slight tilt with float
+
+            // Calculate distance between cone tips
+            const bottomTipY = 0.5; // Fixed tip of bottom cone
+            const topTipY = 1.9167 + floatOffset; // Current tip of top cone
+            const distance = topTipY - bottomTipY; // Distance between tips (1.4167 to 2.1389, corrected to 1.3333 to 1.7778)
+
+            // Update star position to center between cones' tips
+            star.position.y = (bottomTipY + topTipY) / 2; // Exact midpoint
+
+            // Animate star scale based on distance (disappear at 1.3333, max at 1.7778)
+            const maxDistance = 1.7778; // Furthest apart
+            const minDistance = 1.3333; // Minimum distance to prevent overlap
+            const scaleFactor = Math.max(0, (distance - minDistance) / (maxDistance - minDistance)); // 0 at 1.3333, 1 at 1.7778, clamped to 0
+            star.scale.set(scaleFactor, scaleFactor, scaleFactor); // Scales from 0 to 1, no inversion
 
             // Update camera based on mouse movement
             if (isPointerLocked && (mouseX !== 0 || mouseY !== 0)) {
