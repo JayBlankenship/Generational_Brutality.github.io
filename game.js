@@ -42,7 +42,7 @@ function initGame() {
     const bottomCone = new THREE.Mesh(coneGeometry, coneMaterial);
     const topCone = new THREE.Mesh(coneGeometry, coneMaterial);
     bottomCone.position.y = 0.5; // Base height (tip of bottom cone)
-    topCone.position.y = 1.7056; // Adjusted initial offset for closer distance
+    topCone.position.y = 1.8056; // Adjusted initial offset for a small gap
     topCone.rotation.x = Math.PI; // Flip upside down (180 degrees around x-axis)
     playerGroup.add(bottomCone);
     playerGroup.add(topCone);
@@ -79,7 +79,7 @@ function initGame() {
         blending: THREE.AdditiveBlending // Bright, glowing effect
     });
     const star = new THREE.LineSegments(starGeometry, starMaterial);
-    star.position.set(0, 1.1028, 0); // Initial midpoint (average of 0.5 and 1.7056)
+    star.position.set(0, 1.1528, 0); // Initial midpoint (average of 0.5 and 1.8056)
     playerGroup.add(star);
 
     playerGroup.position.y = 0;   // Group base at origin
@@ -244,22 +244,22 @@ function initGame() {
 
             // Floating effect for top cone (continuous oscillation, no overlap)
             const floatOffset = Math.sin(animationTime * 2) * 0.2222; // ±0.2222 for 1/3 range
-            topCone.position.y = 1.7056 + floatOffset; // Adjusted base offset + oscillation
+            topCone.position.y = 1.8056 + floatOffset; // Adjusted base offset + oscillation
             topCone.rotation.x = Math.PI + floatOffset * 0.1; // Slight tilt with float
 
             // Calculate distance between cone tips
             const bottomTipY = 0.5; // Fixed tip of bottom cone
-            const topTipY = 1.7056 + floatOffset; // Current tip of top cone
-            const distance = (topTipY - bottomTipY) + 0.25; // Adjusted to range 1.2333 to 1.6778
+            const topTipY = 1.8056 + floatOffset; // Current tip of top cone
+            const distance = (topTipY - bottomTipY) + 0.35; // Adjusted to range 1.4333 to 1.8778
 
             // Update star position to center between cones' tips
             star.position.y = (bottomTipY + topTipY) / 2; // Exact midpoint
 
-            // Animate star scale based on distance (disappear at 1.2333, max at 1.6778)
-            const maxDistance = 1.6778; // Furthest apart
-            const minDistance = 1.2333; // Minimum distance to prevent overlap
-            const scaleFactor = Math.max(0, (distance - minDistance) / (maxDistance - minDistance)); // 0 at 1.2333, 1 at 1.6778, clamped to 0
-            star.scale.set(scaleFactor, scaleFactor, scaleFactor); // Scales from 0 to 1, no inversion
+            // Animate star scale based on distance (disappear at 1.4333, max at 1.8778, capped at 0.9)
+            const maxDistance = 1.8778; // Furthest apart
+            const minDistance = 1.4333; // Minimum distance to prevent overlap
+            const scaleFactor = Math.max(0, Math.min(0.9, (distance - minDistance) / (maxDistance - minDistance))); // 0 at 1.4333, 0.9 at 1.8778, clamped
+            star.scale.set(scaleFactor, scaleFactor, scaleFactor); // Scales from 0 to 0.9, no inversion
 
             // Update camera based on mouse movement
             if (isPointerLocked && (mouseX !== 0 || mouseY !== 0)) {
