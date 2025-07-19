@@ -33,17 +33,16 @@ function initGame() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 
     // Create player pawn and star
-    const playerPawn = createPlayerPawn();
-    const star = createStar();
-    playerPawn.add(star);
+    const playerPawn = createPlayerPawn(false); // false indicates human player
     scene.add(playerPawn);
+
 
     // Create AI player
     const aiPlayer = createAIPlayer();
     scene.add(aiPlayer);
 
     // Procedural ground system
-    const planeSize = 20;
+    const planeSize = 50;
     const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize, 1, 1);
     const planeMaterial = new THREE.MeshBasicMaterial({ 
         color: 0x00FF00, // Neon green
@@ -236,7 +235,6 @@ function initGame() {
 
             // Update player pawn and star animations
             playerPawn.update(deltaTime, animationTime);
-            star.update(deltaTime, animationTime, playerPawn.getConeTips());
 
             // Update AI player
             aiPlayer.updateAI(deltaTime, animationTime);

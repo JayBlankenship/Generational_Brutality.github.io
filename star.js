@@ -1,6 +1,6 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.134.0';
 
-export function createStar() {
+export function createStar(color = 0x00FFFF) {  // Default to cyan if no color provided
     const radius = 0.3;
     const vertices = new Float32Array([
         0, 0, 0,
@@ -18,7 +18,7 @@ export function createStar() {
     starGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
     starGeometry.setIndex(new THREE.BufferAttribute(indices, 1));
     const starMaterial = new THREE.LineBasicMaterial({
-        color: 0x00FFFF,
+        color: color,  // Use the passed color
         transparent: true,
         opacity: 0.8,
         blending: THREE.AdditiveBlending
@@ -45,7 +45,7 @@ export function createStar() {
         const baseScale = 0.3 + Math.random() * 0.4;
         clone.scale.set(baseScale, baseScale, baseScale);
         // Random spin speed and axis for individual clone spinning
-        clone.userData.spinSpeed = (Math.random() - 0.5) * 2;
+        clone.userData.spinSpeed = (Math.random() - 0.5) * 3; // Increased for more intense clone spinning
         clone.userData.spinAxis = new THREE.Vector3(
             Math.random() - 0.5,
             Math.random() - 0.5,
@@ -57,7 +57,7 @@ export function createStar() {
     }
 
     // Group-level animation properties
-    const groupSpinSpeed = (Math.random() - 0.5) * 4; // Rapid group spin speed
+    const baseSpinSpeed = (Math.random() - 0.5) * 8; // Base spin speed, increased for violent spinning
     const groupSpinAxis = new THREE.Vector3(
         Math.random() - 0.5,
         Math.random() - 0.5,
@@ -71,17 +71,18 @@ export function createStar() {
         const minDistance = 1.4333;
         const scaleFactor = Math.max(0, (distance - minDistance) / (maxDistance - minDistance));
 
-        // Update group position (no translation, only centered at midpoint)
+        // Update group position (centered at midpoint)
         starGroup.position.set(0, midpointY, 0);
 
-        // Update group rotation for rapid spinning
-        starGroup.rotation.x += deltaTime * groupSpinSpeed * groupSpinAxis.x;
-        starGroup.rotation.y += deltaTime * groupSpinSpeed * groupSpinAxis.y;
-        starGroup.rotation.z += deltaTime * groupSpinSpeed * groupSpinAxis.z;
+        // Update group rotation with speed increasing with distance
+        const spinSpeed = baseSpinSpeed * (1 + scaleFactor * 2); // Spin speed increases up to 3x at max distance
+        starGroup.rotation.x += deltaTime * spinSpeed * groupSpinAxis.x;
+        starGroup.rotation.y += deltaTime * spinSpeed * groupSpinAxis.y;
+        starGroup.rotation.z += deltaTime * spinSpeed * groupSpinAxis.z;
 
         // Vibrational surge effect: amplitude increases with distance
-        const surgeAmplitude = scaleFactor * 0.1; // Max 10% surge at max distance
-        const surge = Math.sin(animationTime * 5) * surgeAmplitude; // Rapid pulsing
+        const surgeAmplitude = scaleFactor * 0.15; // Increased to 15% surge at max distance
+        const surge = Math.sin(animationTime * 6) * surgeAmplitude; // Faster pulsing
 
         // Update individual stars
         starGroup.children.forEach((child, index) => {

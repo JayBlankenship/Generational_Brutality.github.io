@@ -1,4 +1,5 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.134.0';
+import { createStar } from './star.js';
 
 function pseudoPerlinNoise(t, seed) {
     const a = Math.sin(t * 1.3 + seed) * 1.7;
@@ -7,10 +8,11 @@ function pseudoPerlinNoise(t, seed) {
     return (a + b + c) / 3;
 }
 
-export function createPlayerPawn() {
+export function createPlayerPawn(isAI = false) {
+    const coneColor = isAI ? 0xFF00FF : 0x00FFFF;  // Define color once
     const coneGeometry = new THREE.ConeGeometry(0.5, 1, 16, 16);
     const coneMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x00FFFF,
+        color: coneColor,  // Use the defined color
         wireframe: true,
         transparent: true,
         opacity: 0.8
@@ -31,25 +33,34 @@ export function createPlayerPawn() {
     playerGroup.add(bottomCone);
     playerGroup.add(topCone);
 
+    // Create and add star to the player group
+    const star = createStar(coneColor);
+    playerGroup.add(star);
+
     // Organic motion variables
     let bottomSpinSpeed = (Math.random() - 0.5) * 1.0;
     let bottomSpinAngle = Math.PI * (Math.random() * 0.5 + 0.25);
     let topSpinSpeed = (Math.random() - 0.5) * 1.2;
     const noiseSeed = Math.random() * 100;
 
-    // Spacebar effect variables
-    let isSpacePressed = false;
-    let surgeProgress = 0; // 0-1 value for smooth transitions
+    // Space effect variables
+    let surgeProgress = 0;
     let surgeVelocity = 0;
     let currentPulsePhase = 0;
     const minDistance = originalDistance * 0.9;
-    const maxDistance = originalDistance * 2; // 2 times original distance
+    const maxDistance = originalDistance * 2;
 
-    // Support for both keyboard and AI control
-    playerGroup.__spacePressed = false;
+    // Space key state (only for human player)
+    let isSpacePressed = false;
 
-    // Spacebar event handlers (for human player only)
-    if (!playerGroup.isAI) {
+    // For AI, expose a way to control surge
+    if (isAI) {
+        playerGroup.__spacePressed = false;
+        playerGroup.setSurge = function(active) {
+            this.__spacePressed = active;
+        };
+    } else {
+        // Only add spacebar listeners for human player
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' && !isSpacePressed) {
                 isSpacePressed = true;
@@ -65,65 +76,56 @@ export function createPlayerPawn() {
     }
 
     playerGroup.update = function(deltaTime, animationTime) {
-        // Use either keyboard state or AI control
-        const spaceActive = isSpacePressed || this.__spacePressed;
+        const spaceActive = isAI ? this.__spacePressed : isSpacePressed;
         
-        // Smoothly transition surge effect with dynamic easing
         const targetSurge = spaceActive ? 1 : 0;
-        const surgeAcceleration = spaceActive ? 0.6 : 1.8; // Faster release
+        const surgeAcceleration = spaceActive ? 0.6 : 1.8;
         surgeVelocity += (targetSurge - surgeProgress) * deltaTime * surgeAcceleration;
         surgeProgress = THREE.MathUtils.clamp(surgeProgress + surgeVelocity * deltaTime * 2, 0, 1);
 
-        // Enhanced pulsing effect with subtle intensity
         if (spaceActive) {
             currentPulsePhase += deltaTime * (1.5 + Math.sin(animationTime * 0.8) * 0.2);
         } else {
-            currentPulsePhase *= 0.97; // Very gentle decay when not active
+            currentPulsePhase *= 0.97;
         }
 
-        // Calculate distance with smooth easing
         const pulseFactor = (Math.sin(currentPulsePhase) * 0.5 + 0.5);
         const targetDistance = minDistance + (maxDistance - minDistance) * 
             easeInOutSine(pulseFactor);
         
-        // Blend between normal and surged distances
         const currentDistance = THREE.MathUtils.lerp(
             originalDistance,
             targetDistance,
             easeOutQuad(surgeProgress)
         );
 
-        // Apply motion to cones with momentum
         const noiseValue = pseudoPerlinNoise(animationTime * (1 + surgeProgress * 0.3), noiseSeed);
         
-        // Bottom cone moves down slightly during surges
         bottomCone.position.y = originalBottomY - 
-            (currentDistance - originalDistance) * 0.1; // More subtle movement
+            (currentDistance - originalDistance) * 0.1;
         
-        // Top cone gets the main movement
-        const floatOffset = noiseValue * 0.2222 * (1 - surgeProgress * 0.1); // Keep more organic motion
+        const floatOffset = noiseValue * 0.2222 * (1 - surgeProgress * 0.1);
         topCone.position.y = originalTopY + 
             (currentDistance - originalDistance) + 
             floatOffset;
         
-        // Moderate spin acceleration during surges
         bottomCone.rotation.y += deltaTime * bottomSpinSpeed * 
-            (1 + surgeProgress * 0.8); // 1.8x speed at max surge
+            (1 + surgeProgress * 0.8);
         topCone.rotation.y += deltaTime * topSpinSpeed * 
-            (1 + surgeProgress * 0.5); // 1.5x speed at max surge
+            (1 + surgeProgress * 0.5);
         
-        // Enhanced rotations with subtle tilting
         const surgeRotationFactor = easeInOutSine(surgeProgress);
         topCone.rotation.x = Math.PI + noiseValue * 0.15 * (1 + surgeRotationFactor * 0.7);
         topCone.rotation.z = noiseValue * 0.07 * (1 + surgeRotationFactor);
 
-        // Reverse spin direction at limits
         if (bottomCone.rotation.y > bottomSpinAngle || bottomCone.rotation.y < -bottomSpinAngle) {
-            bottomSpinSpeed *= -1 * (0.85 + Math.random() * 0.3); // Subtle variation
+            bottomSpinSpeed *= -1 * (0.85 + Math.random() * 0.3);
         }
+
+        // Update the star with cone tip positions
+        star.update(deltaTime, animationTime, this.getConeTips());
     };
 
-    // Smooth easing functions
     function easeOutQuad(x) {
         return 1 - (1 - x) * (1 - x);
     }

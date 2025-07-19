@@ -2,7 +2,10 @@ import * as THREE from 'https://cdn.skypack.dev/three@0.134.0';
 import { createPlayerPawn } from './playerPawn.js';
 
 export function createAIPlayer() {
-    const aiPawn = createPlayerPawn();
+    // Create AI pawn with isAI=true to get purple color and no keyboard controls
+    const aiPawn = createPlayerPawn(true);
+    
+    // Set random starting position
     aiPawn.position.set(
         (Math.random() - 0.5) * 40, // Random x position (-20 to 20)
         0,
@@ -15,6 +18,7 @@ export function createAIPlayer() {
     let changeDirectionInterval = 2 + Math.random() * 3; // 2-5 seconds
     let isSurgeActive = false;
     let surgeCooldown = 0;
+    const aiSpeed = 3.5; // Slightly slower than player
 
     // Random movement direction
     function chooseNewDirection() {
@@ -24,24 +28,30 @@ export function createAIPlayer() {
         } else {
             // Random direction
             const angle = Math.random() * Math.PI * 2;
-            currentDirection.set(Math.sin(angle), 0, Math.cos(angle));
+            currentDirection.set(Math.sin(angle), 0, Math.cos(angle)).normalize();
         }
         decisionTimer = 0;
         changeDirectionInterval = 2 + Math.random() * 3; // New interval
     }
 
-    // Random surge activation
+    // Random surge activation with more intelligent timing
     function updateSurgeState(deltaTime) {
         surgeCooldown -= deltaTime;
+        
         if (surgeCooldown <= 0) {
-            // 30% chance to activate surge each second when cooldown is up
-            if (Math.random() < deltaTime * 0.3) {
+            // Higher chance to surge when moving (50% vs 10% when idle)
+            const surgeChance = currentDirection.length() > 0 ? 0.5 : 0.1;
+            
+            if (Math.random() < deltaTime * surgeChance) {
                 isSurgeActive = true;
-                surgeCooldown = 1 + Math.random() * 2; // 1-3 second cooldown
+                surgeCooldown = 0.5 + Math.random(); // Short active period (0.5-1.5s)
             }
         } else {
             isSurgeActive = false;
         }
+        
+        // Update the pawn's surge state
+        aiPawn.setSurge(isSurgeActive);
     }
 
     aiPawn.updateAI = function(deltaTime, animationTime) {
@@ -54,15 +64,12 @@ export function createAIPlayer() {
         // Update surge state
         updateSurgeState(deltaTime);
 
-        // Simulate spacebar press for the AI
-        aiPawn.__spacePressed = isSurgeActive;
-
         // Move the AI pawn
-        const speed = 3.5; // Slightly slower than player
-        aiPawn.position.x += currentDirection.x * speed * deltaTime;
-        aiPawn.position.z += currentDirection.z * speed * deltaTime;
+        const currentSpeed = isSurgeActive ? aiSpeed * 1.5 : aiSpeed;
+        aiPawn.position.x += currentDirection.x * currentSpeed * deltaTime;
+        aiPawn.position.z += currentDirection.z * currentSpeed * deltaTime;
 
-        // Call the original update for animations
+        // Call the original update for animations (star will update automatically)
         aiPawn.update(deltaTime, animationTime);
     };
 
