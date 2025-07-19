@@ -37,12 +37,29 @@ function initGame() {
     scene.add(playerPawn);
 
 
-    // Create AI player
-    const aiPlayer = createAIPlayer();
-    scene.add(aiPlayer);
+        // Create multiple AI players
+    const numberOfAIPlayers = 8; // Set this to your desired number
+    const aiPlayers = []; // Array to store all AI players
+
+    for (let i = 0; i < numberOfAIPlayers; i++) {
+        const aiPlayer = createAIPlayer();
+        
+        // Position in a spiral pattern to avoid clustering
+        const angle = (i / numberOfAIPlayers) * Math.PI * 2;
+        const radius = 10 + (i % 5) * 5; // Staggered distances
+        
+        aiPlayer.position.set(
+            Math.cos(angle) * radius,
+            0,
+            Math.sin(angle) * radius
+        );
+        
+        scene.add(aiPlayer);
+        aiPlayers.push(aiPlayer);
+    }
 
     // Procedural ground system
-    const planeSize = 1;
+    const planeSize = 2;
     const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize, 1, 1);
     const planeMaterial = new THREE.MeshBasicMaterial({ 
         color: 0x00FF00, // Neon green
@@ -236,19 +253,39 @@ function initGame() {
             // Update player pawn and star animations
             playerPawn.update(deltaTime, animationTime);
 
-            // Update AI player
+            // Update all AI players
+            aiPlayers.forEach(aiPlayer => {
             aiPlayer.updateAI(deltaTime, animationTime);
+            
+            // Generate planes around each AI
+            generateNeighboringPlanes(aiPlayer.position);
+        });
+
 
             // Generate new planes for both player and AI
             generateNeighboringPlanes(playerPawn.position);
-            generateNeighboringPlanes(aiPlayer.position);
 
-            // Remove distant planes
+            // Remove distant planes (check distance to player and all AIs)
             const maxDistance = gridSize * 3;
             planes.forEach((planeData, gridKey) => {
-                const playerDist = playerPawn.position.distanceTo(planeData.position);
-                const aiDist = aiPlayer.position.distanceTo(planeData.position);
-                if (playerDist > maxDistance && aiDist > maxDistance) {
+                let shouldRemove = true;
+                
+                // Check player distance
+                if (playerPawn.position.distanceTo(planeData.position) <= maxDistance) {
+                    shouldRemove = false;
+                }
+                
+                // Check AI distances
+                if (shouldRemove) {
+                    for (const aiPlayer of aiPlayers) {
+                        if (aiPlayer.position.distanceTo(planeData.position) <= maxDistance) {
+                            shouldRemove = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (shouldRemove) {
                     scene.remove(planeData.mesh);
                     planes.delete(gridKey);
                 }
