@@ -64,7 +64,7 @@ function initGame() {
         plane.rotation.x = -Math.PI / 2;
         plane.position.copy(position);
         // Slight random rotation for variety
-        plane.rotation.y = (Math.random() - 0.5) * 0.1; // ±0.05 radians
+        //plane.rotation.y = (Math.random() - 0.5) * 0.1; // ±0.05 radians
         scene.add(plane);
 
         const gridKey = getGridKey(position.x, position.z);
@@ -79,7 +79,7 @@ function initGame() {
         // Check if player is near an edge (within 2 units of plane boundary)
         const localX = playerPosition.x - gridX * gridSize;
         const localZ = playerPosition.z - gridZ * gridSize;
-        const edgeThreshold = 2;
+        const edgeThreshold = 170;
 
         const neighbors = [
             { dx: 1, dz: 0 }, // Right
