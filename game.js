@@ -266,7 +266,7 @@ function initGame() {
             generateNeighboringPlanes(playerPawn.position);
 
             // Remove distant planes (check distance to player and all AIs)
-            const maxDistance = gridSize * 3;
+            const maxDistance = gridSize * 10;
             planes.forEach((planeData, gridKey) => {
                 let shouldRemove = true;
                 
