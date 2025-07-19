@@ -42,7 +42,7 @@ function initGame() {
     scene.add(aiPlayer);
 
     // Procedural ground system
-    const planeSize = 50;
+    const planeSize = 1;
     const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize, 1, 1);
     const planeMaterial = new THREE.MeshBasicMaterial({ 
         color: 0x00FF00, // Neon green
