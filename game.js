@@ -1,6 +1,7 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.134.0';
 import { createPlayerPawn } from './playerPawn.js';
 import { createStar } from './star.js';
+import { createAIPlayer } from './ai.js';
 
 const canvas = document.getElementById('gameCanvas');
 const startButton = document.getElementById('startButton');
@@ -37,6 +38,10 @@ function initGame() {
     playerPawn.add(star);
     scene.add(playerPawn);
 
+    // Create AI player
+    const aiPlayer = createAIPlayer();
+    scene.add(aiPlayer);
+
     // Procedural ground system
     const planeSize = 20;
     const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize, 1, 1);
@@ -63,23 +68,21 @@ function initGame() {
         const plane = new THREE.Mesh(planeGeometry, planeMaterial);
         plane.rotation.x = -Math.PI / 2;
         plane.position.copy(position);
-        // Slight random rotation for variety
-        //plane.rotation.y = (Math.random() - 0.5) * 0.1; // ±0.05 radians
         scene.add(plane);
 
         const gridKey = getGridKey(position.x, position.z);
         planes.set(gridKey, { mesh: plane, position });
     }
 
-    // Generate neighboring planes when player is near an edge
-    function generateNeighboringPlanes(playerPosition) {
-        const gridKey = getGridKey(playerPosition.x, playerPosition.z);
+    // Generate neighboring planes when an entity is near an edge
+    function generateNeighboringPlanes(entityPosition) {
+        const gridKey = getGridKey(entityPosition.x, entityPosition.z);
         const [gridX, gridZ] = gridKey.split(',').map(Number);
 
-        // Check if player is near an edge (within 2 units of plane boundary)
-        const localX = playerPosition.x - gridX * gridSize;
-        const localZ = playerPosition.z - gridZ * gridSize;
-        const edgeThreshold = 170;
+        // Check if entity is near an edge (within 35 units of plane boundary)
+        const localX = entityPosition.x - gridX * gridSize;
+        const localZ = entityPosition.z - gridZ * gridSize;
+        const edgeThreshold = 35;
 
         const neighbors = [
             { dx: 1, dz: 0 }, // Right
@@ -89,7 +92,6 @@ function initGame() {
         ];
 
         neighbors.forEach(({ dx, dz }) => {
-            // Only generate if player is near the corresponding edge
             if (
                 (dx === 1 && localX > gridSize / 2 - edgeThreshold) ||
                 (dx === -1 && localX < -gridSize / 2 + edgeThreshold) ||
@@ -136,7 +138,6 @@ function initGame() {
 
     document.addEventListener('pointerlockchange', () => {
         isPointerLocked = document.pointerLockElement === canvas;
-        console.log('Pointer Lock State:', isPointerLocked);
     });
 
     document.addEventListener('mousemove', (e) => {
@@ -196,12 +197,6 @@ function initGame() {
         menu.style.display = 'none';
         if (!isPointerLocked) {
             canvas.requestPointerLock();
-            setTimeout(() => {
-                if (!isPointerLocked) {
-                    console.log('Pointer Lock failed, retrying with click simulation');
-                    canvas.dispatchEvent(new Event('click'));
-                }
-            }, 100);
         }
     });
 
@@ -243,13 +238,19 @@ function initGame() {
             playerPawn.update(deltaTime, animationTime);
             star.update(deltaTime, animationTime, playerPawn.getConeTips());
 
-            // Generate new planes if player is near an edge
+            // Update AI player
+            aiPlayer.updateAI(deltaTime, animationTime);
+
+            // Generate new planes for both player and AI
             generateNeighboringPlanes(playerPawn.position);
+            generateNeighboringPlanes(aiPlayer.position);
 
             // Remove distant planes
             const maxDistance = gridSize * 3;
             planes.forEach((planeData, gridKey) => {
-                if (playerPawn.position.distanceTo(planeData.position) > maxDistance) {
+                const playerDist = playerPawn.position.distanceTo(planeData.position);
+                const aiDist = aiPlayer.position.distanceTo(planeData.position);
+                if (playerDist > maxDistance && aiDist > maxDistance) {
                     scene.remove(planeData.mesh);
                     planes.delete(gridKey);
                 }
