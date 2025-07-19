@@ -1,4 +1,3 @@
-
 import * as THREE from 'https://cdn.skypack.dev/three@0.134.0';
 import { createPlayerPawn } from './playerPawn.js';
 import { createStar } from './star.js';
@@ -38,16 +37,77 @@ function initGame() {
     playerPawn.add(star);
     scene.add(playerPawn);
 
-    // Ground with Tron-like wireframe
-    const planeGeometry = new THREE.PlaneGeometry(20, 20);
+    // Procedural ground system
+    const planeSize = 20;
+    const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize, 1, 1);
     const planeMaterial = new THREE.MeshBasicMaterial({ 
         color: 0x00FF00, // Neon green
         side: THREE.DoubleSide,
         wireframe: true
     });
-    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    plane.rotation.x = -Math.PI / 2;
-    scene.add(plane);
+
+    // Track planes using a grid system (x, z coordinates)
+    const planes = new Map(); // Map<gridKey, { mesh, position }>
+    const gridSize = planeSize; // Each plane occupies a grid cell
+
+    // Convert world position to grid coordinates
+    function getGridKey(x, z) {
+        const gridX = Math.floor(x / gridSize);
+        const gridZ = Math.floor(z / gridSize);
+        return `${gridX},${gridZ}`;
+    }
+
+    // Create a plane at a given grid position
+    function createPlane(gridX, gridZ) {
+        const position = new THREE.Vector3(gridX * gridSize, 0, gridZ * gridSize);
+        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.copy(position);
+        // Slight random rotation for variety
+        plane.rotation.y = (Math.random() - 0.5) * 0.1; // ±0.05 radians
+        scene.add(plane);
+
+        const gridKey = getGridKey(position.x, position.z);
+        planes.set(gridKey, { mesh: plane, position });
+    }
+
+    // Generate neighboring planes when player is near an edge
+    function generateNeighboringPlanes(playerPosition) {
+        const gridKey = getGridKey(playerPosition.x, playerPosition.z);
+        const [gridX, gridZ] = gridKey.split(',').map(Number);
+
+        // Check if player is near an edge (within 2 units of plane boundary)
+        const localX = playerPosition.x - gridX * gridSize;
+        const localZ = playerPosition.z - gridZ * gridSize;
+        const edgeThreshold = 2;
+
+        const neighbors = [
+            { dx: 1, dz: 0 }, // Right
+            { dx: -1, dz: 0 }, // Left
+            { dx: 0, dz: 1 }, // Forward
+            { dx: 0, dz: -1 } // Backward
+        ];
+
+        neighbors.forEach(({ dx, dz }) => {
+            // Only generate if player is near the corresponding edge
+            if (
+                (dx === 1 && localX > gridSize / 2 - edgeThreshold) ||
+                (dx === -1 && localX < -gridSize / 2 + edgeThreshold) ||
+                (dz === 1 && localZ > gridSize / 2 - edgeThreshold) ||
+                (dz === -1 && localZ < -gridSize / 2 + edgeThreshold)
+            ) {
+                const newGridX = gridX + dx;
+                const newGridZ = gridZ + dz;
+                const newGridKey = `${newGridX},${newGridZ}`;
+                if (!planes.has(newGridKey)) {
+                    createPlane(newGridX, newGridZ);
+                }
+            }
+        });
+    }
+
+    // Create initial plane
+    createPlane(0, 0);
 
     // Initial camera position
     camera.position.set(0, 5, -10);
@@ -182,6 +242,18 @@ function initGame() {
             // Update player pawn and star animations
             playerPawn.update(deltaTime, animationTime);
             star.update(deltaTime, animationTime, playerPawn.getConeTips());
+
+            // Generate new planes if player is near an edge
+            generateNeighboringPlanes(playerPawn.position);
+
+            // Remove distant planes
+            const maxDistance = gridSize * 3;
+            planes.forEach((planeData, gridKey) => {
+                if (playerPawn.position.distanceTo(planeData.position) > maxDistance) {
+                    scene.remove(planeData.mesh);
+                    planes.delete(gridKey);
+                }
+            });
 
             // Update camera based on mouse movement
             if (isPointerLocked && (mouseX !== 0 || mouseY !== 0)) {
