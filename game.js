@@ -36,8 +36,7 @@ function initGame() {
     const playerPawn = createPlayerPawn(false); // false indicates human player
     scene.add(playerPawn);
 
-
-        // Create multiple AI players
+    // Create multiple AI players
     const numberOfAIPlayers = 8; // Set this to your desired number
     const aiPlayers = []; // Array to store all AI players
 
@@ -46,7 +45,7 @@ function initGame() {
         
         // Position in a spiral pattern to avoid clustering
         const angle = (i / numberOfAIPlayers) * Math.PI * 2;
-        const radius = 10 + (i % 5) * 5; // Staggered distances
+        const radius = 70 + (i % 5) * 5; // Staggered distances
         
         aiPlayer.position.set(
             Math.cos(angle) * radius,
@@ -90,42 +89,44 @@ function initGame() {
         planes.set(gridKey, { mesh: plane, position });
     }
 
-    // Generate neighboring planes when an entity is near an edge
+    // Generate neighboring planes and ensure a plane under the entity, with a larger radius
     function generateNeighboringPlanes(entityPosition) {
         const gridKey = getGridKey(entityPosition.x, entityPosition.z);
         const [gridX, gridZ] = gridKey.split(',').map(Number);
 
-        // Check if entity is near an edge (within 35 units of plane boundary)
+        // Always create a plane directly under the entity if it doesn't exist
+        const currentGridKey = `${gridX},${gridZ}`;
+        if (!planes.has(currentGridKey)) {
+            createPlane(gridX, gridZ);
+        }
+
+        // Check if entity is near an edge (within 5 units of plane boundary) to generate neighbors
         const localX = entityPosition.x - gridX * gridSize;
         const localZ = entityPosition.z - gridZ * gridSize;
-        const edgeThreshold = 35;
+        const edgeThreshold = 5;
 
-        const neighbors = [
-            { dx: 1, dz: 0 }, // Right
-            { dx: -1, dz: 0 }, // Left
-            { dx: 0, dz: 1 }, // Forward
-            { dx: 0, dz: -1 } // Backward
-        ];
+        // Generate planes up to 5 grid cells out in all four directions
+        const maxDistance = 18; // Generate 5 cells out (total span of 11 cells: -5 to +5)
+        for (let dx = -maxDistance; dx <= maxDistance; dx++) {
+            for (let dz = -maxDistance; dz <= maxDistance; dz++) {
+                if (dx === 0 && dz === 0) continue; // Skip the center (already handled)
+                if (Math.abs(dx) + Math.abs(dz) > maxDistance) continue; // Keep it a cross shape (only x or z offset)
 
-        neighbors.forEach(({ dx, dz }) => {
-            if (
-                (dx === 1 && localX > gridSize / 2 - edgeThreshold) ||
-                (dx === -1 && localX < -gridSize / 2 + edgeThreshold) ||
-                (dz === 1 && localZ > gridSize / 2 - edgeThreshold) ||
-                (dz === -1 && localZ < -gridSize / 2 + edgeThreshold)
-            ) {
-                const newGridX = gridX + dx;
-                const newGridZ = gridZ + dz;
-                const newGridKey = `${newGridX},${newGridZ}`;
-                if (!planes.has(newGridKey)) {
-                    createPlane(newGridX, newGridZ);
+                // Check if near an edge in the respective direction
+                if (
+                    (dx !== 0 && Math.abs(localX) > gridSize / 2 - edgeThreshold) ||
+                    (dz !== 0 && Math.abs(localZ) > gridSize / 2 - edgeThreshold)
+                ) {
+                    const newGridX = gridX + dx;
+                    const newGridZ = gridZ + dz;
+                    const newGridKey = `${newGridX},${newGridZ}`;
+                    if (!planes.has(newGridKey)) {
+                        createPlane(newGridX, newGridZ);
+                    }
                 }
             }
-        });
+        }
     }
-
-    // Create initial plane
-    createPlane(0, 0);
 
     // Initial camera position
     camera.position.set(0, 5, -10);
@@ -255,12 +256,10 @@ function initGame() {
 
             // Update all AI players
             aiPlayers.forEach(aiPlayer => {
-            aiPlayer.updateAI(deltaTime, animationTime);
-            
-            // Generate planes around each AI
-            generateNeighboringPlanes(aiPlayer.position);
-        });
-
+                aiPlayer.updateAI(deltaTime, animationTime);
+                // Generate planes around each AI
+                generateNeighboringPlanes(aiPlayer.position);
+            });
 
             // Generate new planes for both player and AI
             generateNeighboringPlanes(playerPawn.position);
