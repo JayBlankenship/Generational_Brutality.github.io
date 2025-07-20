@@ -2,6 +2,8 @@ import * as THREE from 'https://cdn.skypack.dev/three@0.134.0';
 import { createPlayerPawn } from './playerPawn.js';
 import { createStar } from './star.js';
 import { createAIPlayer } from './ai.js';
+import { TerrainPlane } from './terrainPlane.js';
+import { TerrainGenerator } from './terrainGenerator.js'; // Import the new class
 
 const canvas = document.getElementById('gameCanvas');
 const startButton = document.getElementById('startButton');
@@ -66,67 +68,8 @@ function initGame() {
         wireframe: true
     });
 
-    // Track planes using a grid system (x, z coordinates)
-    const planes = new Map(); // Map<gridKey, { mesh, position }>
-    const gridSize = planeSize; // Each plane occupies a grid cell
-
-    // Convert world position to grid coordinates
-    function getGridKey(x, z) {
-        const gridX = Math.floor(x / gridSize);
-        const gridZ = Math.floor(z / gridSize);
-        return `${gridX},${gridZ}`;
-    }
-
-    // Create a plane at a given grid position
-    function createPlane(gridX, gridZ) {
-        const position = new THREE.Vector3(gridX * gridSize, 0, gridZ * gridSize);
-        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-        plane.rotation.x = -Math.PI / 2;
-        plane.position.copy(position);
-        scene.add(plane);
-
-        const gridKey = getGridKey(position.x, position.z);
-        planes.set(gridKey, { mesh: plane, position });
-    }
-
-    // Generate neighboring planes and ensure a plane under the entity, with a larger radius
-    function generateNeighboringPlanes(entityPosition) {
-        const gridKey = getGridKey(entityPosition.x, entityPosition.z);
-        const [gridX, gridZ] = gridKey.split(',').map(Number);
-
-        // Always create a plane directly under the entity if it doesn't exist
-        const currentGridKey = `${gridX},${gridZ}`;
-        if (!planes.has(currentGridKey)) {
-            createPlane(gridX, gridZ);
-        }
-
-        // Check if entity is near an edge (within 5 units of plane boundary) to generate neighbors
-        const localX = entityPosition.x - gridX * gridSize;
-        const localZ = entityPosition.z - gridZ * gridSize;
-        const edgeThreshold = 5;
-
-        // Generate planes up to 5 grid cells out in all four directions
-        const maxDistance = 18; // Generate 5 cells out (total span of 11 cells: -5 to +5)
-        for (let dx = -maxDistance; dx <= maxDistance; dx++) {
-            for (let dz = -maxDistance; dz <= maxDistance; dz++) {
-                if (dx === 0 && dz === 0) continue; // Skip the center (already handled)
-                if (Math.abs(dx) + Math.abs(dz) > maxDistance) continue; // Keep it a cross shape (only x or z offset)
-
-                // Check if near an edge in the respective direction
-                if (
-                    (dx !== 0 && Math.abs(localX) > gridSize / 2 - edgeThreshold) ||
-                    (dz !== 0 && Math.abs(localZ) > gridSize / 2 - edgeThreshold)
-                ) {
-                    const newGridX = gridX + dx;
-                    const newGridZ = gridZ + dz;
-                    const newGridKey = `${newGridX},${newGridZ}`;
-                    if (!planes.has(newGridKey)) {
-                        createPlane(newGridX, newGridZ);
-                    }
-                }
-            }
-        }
-    }
+    // Initialize TerrainGenerator
+    const terrainGenerator = new TerrainGenerator(scene, planeSize, planeGeometry, planeMaterial);
 
     // Initial camera position
     camera.position.set(0, 5, -10);
@@ -258,37 +201,14 @@ function initGame() {
             aiPlayers.forEach(aiPlayer => {
                 aiPlayer.updateAI(deltaTime, animationTime);
                 // Generate planes around each AI
-                generateNeighboringPlanes(aiPlayer.position);
+                terrainGenerator.generateNeighboringPlanes(aiPlayer.position);
             });
 
             // Generate new planes for both player and AI
-            generateNeighboringPlanes(playerPawn.position);
+            terrainGenerator.generateNeighboringPlanes(playerPawn.position);
 
             // Remove distant planes (check distance to player and all AIs)
-            const maxDistance = gridSize * 10;
-            planes.forEach((planeData, gridKey) => {
-                let shouldRemove = true;
-                
-                // Check player distance
-                if (playerPawn.position.distanceTo(planeData.position) <= maxDistance) {
-                    shouldRemove = false;
-                }
-                
-                // Check AI distances
-                if (shouldRemove) {
-                    for (const aiPlayer of aiPlayers) {
-                        if (aiPlayer.position.distanceTo(planeData.position) <= maxDistance) {
-                            shouldRemove = false;
-                            break;
-                        }
-                    }
-                }
-                
-                if (shouldRemove) {
-                    scene.remove(planeData.mesh);
-                    planes.delete(gridKey);
-                }
-            });
+            terrainGenerator.removeDistantPlanes(playerPawn.position, aiPlayers);
 
             // Update camera based on mouse movement
             if (isPointerLocked && (mouseX !== 0 || mouseY !== 0)) {
